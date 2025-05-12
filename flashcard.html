@@ -1,0 +1,344 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vibrant Flashcard App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: linear-gradient(45deg, #1e1e2f, #3a1c71);
+            font-family: 'Poppins', sans-serif;
+            overflow: hidden;
+        }
+
+        .card {
+            width: 80vw;
+            height: 80vh;
+            max-width: 800px;
+            max-height: 500px;
+            perspective: 1500px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.8s ease-in-out;
+            transform-style: preserve-3d;
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, #ff00cc, #ff6a00, #00ffcc);
+            background-size: 200% 200%;
+            animation: gradientShift 5s ease infinite;
+            color: #fff;
+            font-size: 3.5em;
+            font-weight: 900;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 255, 255, 0.5);
+            letter-spacing: 2px;
+            word-wrap: break-word;
+            max-width: 90%;
+            overflow-wrap: break-word;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        .card-front.long-word {
+            font-size: 2.5em;
+        }
+
+        .card-back {
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            color: #fff;
+            transform: rotateY(180deg);
+            font-size: 1.2em;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .card-back h3 {
+            margin: 0 0 20px;
+            font-size: 2em;
+            font-weight: 700;
+            color: #00ffcc;
+            text-shadow: 0 0 5px rgba(0, 255, 204, 0.8);
+        }
+
+        .card-back p {
+            margin: 10px 0;
+            line-height: 1.6;
+            font-size: 1.3em;
+            font-weight: 500;
+            color: #f0f0f0;
+            text-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+        }
+
+        .speak-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: linear-gradient(90deg, #ff00cc, #ff6a00);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 0 10px rgba(255, 107, 107, 0.8);
+        }
+
+        .speak-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(255, 107, 107, 1);
+        }
+
+        .nav-buttons {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .nav-btn {
+            padding: 10px 20px;
+            background: linear-gradient(90deg, #00ffcc, #ff00cc);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.8);
+        }
+
+        .nav-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 1);
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes neonGlow {
+            0% { box-shadow: 0 0 20px rgba(255, 0, 204, 0.7), 0 0 40px rgba(255, 106, 0, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(255, 0, 204, 1), 0 0 60px rgba(255, 106, 0, 0.8); }
+            100% { box-shadow: 0 0 20px rgba(255, 0, 204, 0.7), 0 0 40px rgba(255, 106, 0, 0.5); }
+        }
+
+        .card {
+            animation: neonGlow 2s infinite;
+        }
+
+        .card-back p, .card-back h3 {
+            max-width: 90%;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="card" onclick="toggleFlip()">
+        <div class="card-inner" id="card-inner">
+            <div class="card-front" id="card-front">Abate</div>
+            <div class="card-back" id="card-back">
+                <h3 id="word-title">Abate (V.)</h3>
+                <p id="word-meaning">Become less intense or widespread</p>
+                <p id="word-hindi">Hindi: कम होना, घटना</p>
+                <button class="speak-btn" id="speak-btn" onclick="speak('Abate')">Speak</button>
+            </div>
+        </div>
+    </div>
+    <div class="nav-buttons">
+        <button class="nav-btn" onclick="prevCard()">Previous</button>
+        <button class="nav-btn" onclick="nextCard()">Next</button>
+    </div>
+
+    <script>
+        const words = [
+            {
+                word: "Abate",
+                pos: "V.",
+                meaning: "Become less intense or widespread",
+                hindi: "कम होना, घटना"
+            },
+            {
+                word: "Abattoir",
+                pos: "N.",
+                meaning: "A place where animals are slaughtered for consumption as food",
+                hindi: "कसाईखाना"
+            },
+            {
+                word: "Abbot",
+                pos: "N.",
+                meaning: "The superior of a monastery",
+                hindi: "मठ का प्रमुख"
+            },
+            {
+                word: "Abbreviation",
+                pos: "N.",
+                meaning: "To reduce to a shorter form intended to stand for the whole",
+                hindi: "संक्षिप्त रूप"
+            },
+            {
+                word: "Abdicate",
+                pos: "V.",
+                meaning: "To give up one's authority or throne",
+                hindi: "अपना पद (या दावा) छोड़ देना"
+            },
+            {
+                word: "Abdication",
+                pos: "N.",
+                meaning: "Act of giving up (renouncing) the throne",
+                hindi: "अपने अधिकार अथवा पद का त्याग करना"
+            },
+            {
+                word: "Aberration",
+                pos: "N.",
+                meaning: "Deviation from the right course",
+                hindi: "असामान्यता"
+            },
+            {
+                word: "Ablution",
+                pos: "N.",
+                meaning: "The act of washing oneself",
+                hindi: "हाथ या शरीर को धोना/साफ करना"
+            },
+            {
+                word: "Abnegate",
+                pos: "V.",
+                meaning: "To refuse or deny oneself",
+                hindi: "त्यागना"
+            },
+            {
+                word: "Abolish",
+                pos: "V.",
+                meaning: "Formally put an end to a system, practice, or institution",
+                hindi: "किसी रिवाज या स्थापित नियम का अंत करना"
+            },
+            {
+                word: "Aboriginal",
+                pos: "Adj.",
+                meaning: "Existing in a land from the earliest times or from before the arrival of colonists",
+                hindi: "किसी देश के मूल निवासी"
+            },
+            {
+                word: "Aborigines",
+                pos: "N.",
+                meaning: "The original inhabitants/natives of a country",
+                hindi: "किसी देश के मूल निवासी"
+            }
+        ];
+
+        let currentIndex = 0;
+        let isFlipped = false;
+
+        function toggleFlip() {
+            isFlipped = !isFlipped;
+            document.getElementById('card-inner').style.transform = isFlipped ? 'rotateY(180deg)' : 'rotateY(0deg)';
+        }
+
+        function updateCard() {
+            const card = words[currentIndex];
+            const front = document.getElementById('card-front');
+            front.textContent = card.word;
+            document.getElementById('word-title').textContent = card.word + ' (' + card.pos + ')';
+            document.getElementById('word-meaning').textContent = card.meaning;
+            document.getElementById('word-hindi').textContent = 'Hindi: ' + card.hindi;
+            document.getElementById('speak-btn').setAttribute('onclick', "speak('" + card.word + "')");
+            front.classList.toggle('long-word', card.word.length > 8);
+            isFlipped = false;
+            document.getElementById('card-inner').style.transform = 'rotateY(0deg)';
+        }
+
+        function nextCard() {
+            currentIndex = (currentIndex + 1) % words.length;
+            updateCard();
+        }
+
+        function prevCard() {
+            currentIndex = (currentIndex - 1 + words.length) % words.length;
+            updateCard();
+        }
+
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 1;
+            utterance.pitch = 1;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        updateCard();
+    </script>
+</body>
+</html>
