@@ -1,0 +1,737 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Memories of Childhood Quiz</title>
+    <style>
+        /* General styling with vibrant theme */
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            margin: 0;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .quiz-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: linear-gradient(145deg, #2c2c54, #3c3c8c);
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .quiz-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.1), transparent);
+            pointer-events: none;
+        }
+
+        h1 {
+            text-align: center;
+            color: #ffd700;
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+            font-size: 2em;
+            margin-bottom: 20px;
+        }
+
+        /* Question styling */
+        .question {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 5px solid #ff6b6b;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .question:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.4);
+        }
+
+        .question-text {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #e0e0ff;
+        }
+
+        .option {
+            display: block;
+            margin: 10px 0;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+            color: #fff;
+        }
+
+        .option input {
+            margin-right: 10px;
+            accent-color: #ff6b6b;
+        }
+
+        .option:hover {
+            background: rgba(255, 107, 107, 0.3);
+            transform: scale(1.02);
+        }
+
+        /* Explanation styling */
+        .explanation {
+            max-height: 0;
+            overflow: hidden;
+            margin-top: 10px;
+            padding: 0 15px;
+            background: rgba(0, 206, 158, 0.2);
+            border-left: 5px solid #00ce9e;
+            border-radius: 8px;
+            transition: max-height 0.5s ease, padding 0.5s ease;
+            color: #e0fff0;
+        }
+
+        .explanation.show {
+            max-height: 200px;
+            padding: 15px;
+        }
+
+        /* Result styling */
+        .correct {
+            background: linear-gradient(90deg, #00b894, #55efc4) !important;
+            color: #fff;
+        }
+
+        .incorrect {
+            background: linear-gradient(90deg, #ff4757, #ff7675) !important;
+            color: #fff;
+        }
+
+        .unattempted {
+            background: linear-gradient(90deg, #636e72, #b2bec3) !important;
+            color: #fff;
+        }
+
+        #result {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: linear-gradient(90deg, #6c5ce7, #a29bfe);
+            color: #fff;
+            border-radius: 10px;
+            font-size: 1.2em;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+        }
+
+        #submit-btn {
+            display: block;
+            margin: 20px auto;
+            padding: 12px 30px;
+            background: linear-gradient(90deg, #fdcb6e, #ffeaa7);
+            color: #2d3436;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        #submit-btn:hover {
+            background: linear-gradient(90deg, #e1b12c, #fdcb6e);
+            transform: scale(1.05);
+        }
+
+        /* Filter buttons styling */
+        #filter-buttons {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .filter-btn {
+            margin: 0 10px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: background 0.3s ease, transform 0.2s ease;
+        }
+
+        .filter-btn.all {
+            background: linear-gradient(90deg, #dfe6e9, #b2bec3);
+            color: #2d3436;
+        }
+
+        .filter-btn.correct {
+            background: linear-gradient(90deg, #00b894, #55efc4);
+            color: #fff;
+        }
+
+        .filter-btn.incorrect {
+            background: linear-gradient(90deg, #ff4757, #ff7675);
+            color: #fff;
+        }
+
+        .filter-btn.unattempted {
+            background: linear-gradient(90deg, #636e72, #b2bec3);
+            color: #fff;
+        }
+
+        .filter-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .filter-btn.active {
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+
+        /* Chart styling */
+        #chart-container {
+            display: none;
+            max-width: 400px;
+            margin: 20px auto;
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        /* Hide questions when filtered */
+        .question.hidden {
+            display: none;
+        }
+
+        /* Responsive design */
+        @media (max-width: 600px) {
+            .quiz-container {
+                padding: 15px;
+            }
+
+            .question {
+                padding: 12px;
+            }
+
+            .option {
+                padding: 10px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            #submit-btn, .filter-btn {
+                padding: 10px 20px;
+                font-size: 1em;
+            }
+
+            #filter-buttons {
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .filter-btn {
+                margin: 5px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="quiz-container">
+        <h1>Memories of Childhood Quiz</h1>
+        <div id="quiz"></div>
+        <button id="submit-btn">Submit</button>
+        <div id="filter-buttons">
+            <button class="filter-btn all active" data-filter="all">All</button>
+            <button class="filter-btn correct" data-filter="correct">Correct</button>
+            <button class="filter-btn incorrect" data-filter="incorrect">Incorrect</button>
+            <button class="filter-btn unattempted" data-filter="unattempted">Unattempted</button>
+        </div>
+        <div id="result"></div>
+        <div id="chart-container">
+            <canvas id="result-chart"></canvas>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // MCQ data
+        const mcqs = [
+            {
+                question: "What is the title of the chapter in Vistas that includes two autobiographical excerpts?",
+                options: ["On the Face of It", "Memories of Childhood", "The Enemy", "Journey to the End of the Earth"],
+                correct: "b",
+                explanation: "The chapter comprises two narratives about childhood oppression."
+            },
+            {
+                question: "Who are the authors of the excerpts in “Memories of Childhood”?",
+                options: ["Pearl S. Buck and Susan Hill", "Zitkala-Sa and Bama", "Tishani Doshi and Kalki", "Jack Finney and Bama"],
+                correct: "b",
+                explanation: "Zitkala-Sa wrote “We Too Are Human Beings,” and Bama wrote “The Cutting of My Long Hair.”"
+            },
+            {
+                question: "What is the common theme of the two excerpts?",
+                options: ["Adventure and exploration", "Oppression and loss of identity due to cultural prejudice", "Family bonds", "Technological progress"],
+                correct: "b",
+                explanation: "Both narrators face discrimination based on their cultural identities."
+            },
+            {
+                question: "What is the setting of Zitkala-Sa’s excerpt?",
+                options: ["A Tamil village in India", "A Native American reservation and a missionary school", "A Japanese seaside", "A British garden"],
+                correct: "b",
+                explanation: "Zitkala-Sa describes her experiences in a Native American context."
+            },
+            {
+                question: "What is the setting of Bama’s excerpt?",
+                options: ["A missionary school in America", "A Tamil village in India", "A war-torn city", "A modern city"],
+                correct: "b",
+                explanation: "Bama narrates her childhood in a Dalit community in Tamil Nadu."
+            },
+            {
+                question: "What is Zitkala-Sa’s real name?",
+                options: ["Bama", "Gertrude Simmons Bonnin", "Susan Hill", "Tishani Doshi"],
+                correct: "b",
+                explanation: "Zitkala-Sa is the pen name of Gertrude Simmons Bonnin, a Native American writer."
+            },
+            {
+                question: "What is the main event described in Zitkala-Sa’s excerpt?",
+                options: ["A festival celebration", "Her forced haircut at a missionary school", "A family reunion", "A journey to a city"],
+                correct: "b",
+                explanation: "The haircut symbolizes the loss of her cultural identity."
+            },
+            {
+                question: "Why does Zitkala-Sa resist the haircut?",
+                options: ["She wants to keep her hair long for beauty", "In her culture, short hair signifies shame or mourning", "She dislikes the school staff", "She is afraid of scissors"],
+                correct: "b",
+                explanation: "Cutting her hair violates her Native American traditions."
+            },
+            {
+                question: "How does Zitkala-Sa feel during the haircut?",
+                options: ["Happy and relieved", "Humiliated and helpless", "Indifferent", "Excited"],
+                correct: "b",
+                explanation: "She describes crying and feeling like a defeated animal."
+            },
+            {
+                question: "What does the missionary school represent in Zitkala-Sa’s excerpt?",
+                options: ["A place of learning", "A site of cultural oppression and assimilation", "A safe haven", "A community center"],
+                correct: "b",
+                explanation: "The school enforces Western norms on Native American children."
+            },
+            {
+                question: "What is Zitkala-Sa’s initial reaction to the school’s rules?",
+                options: ["She accepts them", "She rebels and hides under a bed", "She ignores them", "She enjoys them"],
+                correct: "b",
+                explanation: "She tries to resist the haircut by hiding."
+            },
+            {
+                question: "Who drags Zitkala-Sa out from under the bed?",
+                options: ["Her mother", "A school staff member", "Her friend", "A priest"],
+                correct: "b",
+                explanation: "The staff forcibly takes her to cut her hair."
+            },
+            {
+                question: "What does Zitkala-Sa compare herself to during the haircut?",
+                options: ["A warrior", "A captured animal", "A princess", "A student"],
+                correct: "b",
+                explanation: "This metaphor conveys her loss of dignity."
+            },
+            {
+                question: "What is the significance of Zitkala-Sa’s long hair?",
+                options: ["It is a fashion choice", "It represents her Native American identity", "It is a burden", "It is irrelevant"],
+                correct: "b",
+                explanation: "Her hair is a cultural symbol stripped away."
+            },
+            {
+                question: "What is the tone of Zitkala-Sa’s narrative?",
+                options: ["Humorous", "Angry and sorrowful", "Neutral", "Joyful"],
+                correct: "b",
+                explanation: "Her tone reflects pain and resistance to oppression."
+            },
+            {
+                question: "What is Bama’s real name?",
+                options: ["Zitkala-Sa", "Faustina Mary Fatima Rani", "Gertrude Simmons", "Susan Hill"],
+                correct: "b",
+                explanation: "Bama is the pen name of this Tamil Dalit writer."
+            },
+            {
+                question: "What is the main event described in Bama’s excerpt?",
+                options: ["A school festival", "Her realization of caste-based discrimination", "A family trip", "A haircut at school"],
+                correct: "b",
+                explanation: "Bama witnesses untouchability and reflects on its impact."
+            },
+            {
+                question: "What incident shocks Bama as a child?",
+                options: ["A friend’s punishment", "An elder carrying a food packet without touching it", "A teacher’s praise", "A village celebration"],
+                correct: "b",
+                explanation: "This reveals the practice of untouchability in her community."
+            },
+            {
+                question: "Why does the elder carry the food packet carefully?",
+                options: ["To keep it clean", "To avoid touching it due to caste rules", "To sell it", "To share it"],
+                correct: "b",
+                explanation: "Upper-caste landlords considered Dalits “untouchable.”"
+            },
+            {
+                question: "How does Bama feel after witnessing the elder’s behavior?",
+                options: ["Amused", "Angry and humiliated", "Indifferent", "Happy"],
+                correct: "b",
+                explanation: "She is shocked by the injustice of caste discrimination."
+            },
+            {
+                question: "What does Bama’s brother, Annan, explain to her?",
+                options: ["The importance of education", "The caste system and its injustices", "Village traditions", "School rules"],
+                correct: "b",
+                explanation: "Annan helps her understand the social hierarchy."
+            },
+            {
+                question: "What advice does Annan give Bama?",
+                options: ["To ignore discrimination", "To study hard and gain respect through education", "To leave the village", "To fight physically"],
+                correct: "b",
+                explanation: "He sees education as a way to overcome caste barriers."
+            },
+            {
+                question: "What is Bama’s community’s social status?",
+                options: ["Upper caste", "Dalit (considered “untouchable”)", "Middle class", "Foreign settlers"],
+                correct: "b",
+                explanation: "Bama belongs to a marginalized Dalit community."
+            },
+            {
+                question: "What does the landlord represent in Bama’s excerpt?",
+                options: ["Kindness", "Caste-based oppression", "Education", "Equality"],
+                correct: "b",
+                explanation: "His behavior enforces untouchability."
+            },
+            {
+                question: "What is the tone of Bama’s narrative?",
+                options: ["Joyful", "Reflective and indignant", "Neutral", "Humorous"],
+                correct: "b",
+                explanation: "She reflects on injustice with anger and resolve."
+            },
+            {
+                question: "What is a common theme in both excerpts?",
+                options: ["Adventure", "Loss of cultural identity due to oppression", "Family unity", "Technological advancement"],
+                correct: "b",
+                explanation: "Both narrators face attempts to erase their cultural identities."
+            },
+            {
+                question: "What does Zitkala-Sa’s excerpt critique?",
+                options: ["Native American traditions", "Forced assimilation of Native Americans", "Modern education", "Family values"],
+                correct: "b",
+                explanation: "The missionary school strips away her cultural identity."
+            },
+            {
+                question: "What does Bama’s excerpt critique?",
+                options: ["Village life", "Caste-based discrimination and untouchability", "Education systems", "Religious practices"],
+                correct: "b",
+                explanation: "She highlights the injustice faced by Dalits."
+            },
+            {
+                question: "What does the haircut symbolize in Zitkala-Sa’s excerpt?",
+                options: ["Beauty", "Loss of cultural identity and dignity", "Freedom", "Education"],
+                correct: "b",
+                explanation: "It represents forced assimilation."
+            },
+            {
+                question: "What does the food packet incident symbolize in Bama’s excerpt?",
+                options: ["Generosity", "The humiliation of caste oppression", "Village unity", "Progress"],
+                correct: "b",
+                explanation: "It reveals the degrading practice of untouchability."
+            },
+            {
+                question: "What does the story suggest about resistance?",
+                options: ["It is futile", "It can take forms like rebellion or education", "It is irrelevant", "It is harmful"],
+                correct: "b",
+                explanation: "Zitkala-Sa rebels, while Bama chooses education."
+            },
+            {
+                question: "What does the story say about childhood innocence?",
+                options: ["It is permanent", "It is shattered by exposure to injustice", "It is irrelevant", "It is harmful"],
+                correct: "b",
+                explanation: "Both narrators lose innocence through oppression."
+            },
+            {
+                question: "What does the story suggest about education?",
+                options: ["It is oppressive", "It can empower marginalized communities", "It is irrelevant", "It is harmful"],
+                correct: "b",
+                explanation: "Annan’s advice to Bama emphasizes this."
+            },
+            {
+                question: "What does the story critique about power?",
+                options: ["It is fair", "It is misused to oppress marginalized groups", "It is irrelevant", "It is beneficial"],
+                correct: "b",
+                explanation: "Both excerpts show dominant groups enforcing prejudice."
+            },
+            {
+                question: "What does the story say about identity?",
+                options: ["It is unimportant", "It is a source of pride but targeted by oppression", "It is harmful", "It is flexible"],
+                correct: "b",
+                explanation: "Both narrators value their cultural identities."
+            },
+            {
+                question: "What is the narrative style of both excerpts?",
+                options: ["Third-person omniscient", "First-person autobiographical", "Second-person narrative", "Dramatic dialogue"],
+                correct: "b",
+                explanation: "Both Zitkala-Sa and Bama narrate their personal experiences."
+            },
+            {
+                question: "What device is used in Zitkala-Sa’s “I felt like a captured animal”?",
+                options: ["Metaphor", "Simile", "Personification", "Alliteration"],
+                correct: "b",
+                explanation: "She compares herself to an animal using “like.”"
+            },
+            {
+                question: "What device is used in Bama’s “my heart burned with anger”?",
+                options: ["Metaphor", "Simile", "Personification", "Hyperbole"],
+                correct: "a",
+                explanation: "Her anger is metaphorically described as burning."
+            },
+            {
+                question: "What device is used in Zitkala-Sa’s “the clatter of shoes echoed”?",
+                options: ["Onomatopoeia", "Simile", "Metaphor", "Alliteration"],
+                correct: "a",
+                explanation: "“Clatter” mimics the sound of shoes."
+            },
+            {
+                question: "What device is used in Bama’s “the landlord sat like a king”?",
+                options: ["Simile", "Metaphor", "Personification", "Hyperbole"],
+                correct: "a",
+                explanation: "The landlord is compared to a king using “like.”"
+            },
+            {
+                question: "What is the effect of the first-person narrative?",
+                options: ["Creates distance", "Makes the experiences personal and emotional", "Confuses readers", "Reduces impact"],
+                correct: "b",
+                explanation: "It immerses readers in the narrators’ pain."
+            },
+            {
+                question: "What device is used in Zitkala-Sa’s “my spirit tore itself in struggling”?",
+                options: ["Personification", "Simile", "Metaphor", "Alliteration"],
+                correct: "a",
+                explanation: "Her spirit is given human-like struggle."
+            },
+            {
+                question: "What device is used in Bama’s “injustice stung like a thorn”?",
+                options: ["Simile", "Metaphor", "Personification", "Hyperbole"],
+                correct: "a",
+                explanation: "Injustice is compared to a thorn using “like.”"
+            },
+            {
+                question: "What device is used in Zitkala-Sa’s “cold, bare walls”?",
+                options: ["Imagery", "Simile", "Metaphor", "Alliteration"],
+                correct: "a",
+                explanation: "Vivid description conveys the school’s harshness."
+            },
+            {
+                question: "What is the effect of Bama’s reflective tone?",
+                options: ["Creates humor", "Highlights her growth and resolve", "Confuses readers", "Reduces meaning"],
+                correct: "b",
+                explanation: "It shows her journey from shock to determination."
+            },
+            {
+                question: "What does Zitkala-Sa’s long hair symbolize?",
+                options: ["Beauty", "Native American cultural identity", "Rebellion", "Shame"],
+                correct: "b",
+                explanation: "Its cutting represents cultural loss."
+            },
+            {
+                question: "What does the missionary school symbolize?",
+                options: ["Education", "Cultural oppression and assimilation", "Freedom", "Community"],
+                correct: "b",
+                explanation: "It enforces Western norms."
+            },
+            {
+                question: "What does the food packet symbolize in Bama’s excerpt?",
+                options: ["Generosity", "Caste-based humiliation", "Unity", "Wealth"],
+                correct: "b",
+                explanation: "It reflects untouchability’s degradation."
+            },
+            {
+                question: "What does Bama’s brother, Annan, symbolize?",
+                options: ["Oppression", "Hope and empowerment through education", "Prejudice", "Isolation"],
+                correct: "b",
+                explanation: "His advice inspires Bama."
+            },
+            {
+                question: "What does the act of hiding under the bed symbolize in Zitkala-Sa’s excerpt?",
+                options: ["Cowardice", "Resistance to oppression", "Playfulness", "Indifference"],
+                correct: "b",
+                explanation: "It shows her defiance."
+            }
+        ];
+
+        // Render quiz
+        const quizContainer = document.getElementById('quiz');
+        mcqs.forEach((mcq, index) => {
+            const questionDiv = document.createElement('div');
+            questionDiv.className = 'question';
+            questionDiv.dataset.index = index;
+            questionDiv.innerHTML = `
+                <div class="question-text">${index + 1}. ${mcq.question}</div>
+                ${mcq.options.map((option, i) => `
+                    <label class="option">
+                        <input type="radio" name="q${index}" value="${String.fromCharCode(97 + i)}">
+                        ${String.fromCharCode(65 + i)}. ${option}
+                    </label>
+                `).join('')}
+                <div class="explanation">${mcq.explanation}</div>
+            `;
+            quizContainer.appendChild(questionDiv);
+        });
+
+        // Handle submit
+        document.getElementById('submit-btn').addEventListener('click', () => {
+            let correct = 0;
+            let incorrect = 0;
+            let unattempted = 0;
+            const questionStatuses = [];
+
+            mcqs.forEach((mcq, index) => {
+                const questionDiv = document.querySelector(`.question[data-index="${index}"]`);
+                const selected = document.querySelector(`input[name="q${index}"]:checked`);
+                const options = document.querySelectorAll(`input[name="q${index}"]`);
+                const explanation = questionDiv.querySelector('.explanation');
+
+                // Show explanation
+                explanation.classList.add('show');
+
+                if (!selected) {
+                    unattempted++;
+                    questionDiv.dataset.status = 'unattempted';
+                    questionStatuses[index] = 'unattempted';
+                    options.forEach(opt => {
+                        const label = opt.parentElement;
+                        if (opt.value === mcq.correct) {
+                            label.classList.add('correct');
+                        } else {
+                            label.classList.add('unattempted');
+                        }
+                    });
+                } else if (selected.value === mcq.correct) {
+                    correct++;
+                    questionDiv.dataset.status = 'correct';
+                    questionStatuses[index] = 'correct';
+                    selected.parentElement.classList.add('correct');
+                } else {
+                    incorrect++;
+                    questionDiv.dataset.status = 'incorrect';
+                    questionStatuses[index] = 'incorrect';
+                    selected.parentElement.classList.add('incorrect');
+                    options.forEach(opt => {
+                        if (opt.value === mcq.correct) {
+                            opt.parentElement.classList.add('correct');
+                        }
+                    });
+                }
+            });
+
+            // Show result
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = `Your Score: ${correct} out of ${mcqs.length}`;
+
+            // Show filter buttons
+            const filterButtons = document.getElementById('filter-buttons');
+            filterButtons.style.display = 'flex';
+
+            // Render pie chart
+            const chartContainer = document.getElementById('chart-container');
+            chartContainer.style.display = 'block';
+            new Chart(document.getElementById('result-chart'), {
+                type: 'pie',
+                data: {
+                    labels: ['Correct', 'Incorrect', 'Unattempted'],
+                    datasets: [{
+                        data: [correct, incorrect, unattempted],
+                        backgroundColor: ['#00b894', '#ff4757', '#636e72']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                color: '#fff'
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Disable submit button
+            document.getElementById('submit-btn').disabled = true;
+
+            // Handle filter buttons
+            const filterBtns = document.querySelectorAll('.filter-btn');
+            filterBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all buttons
+                    filterBtns.forEach(b => b.classList.remove('active'));
+                    // Add active class to clicked button
+                    btn.classList.add('active');
+
+                    const filter = btn.dataset.filter;
+                    const questions = document.querySelectorAll('.question');
+
+                    questions.forEach(q => {
+                        if (filter === 'all' || q.dataset.status === filter) {
+                            q.classList.remove('hidden');
+                        } else {
+                            q.classList.add('hidden');
+                        }
+                    });
+                });
+            });
+        });
+    </script>
+</body>
+</html>
