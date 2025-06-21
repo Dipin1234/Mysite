@@ -1,0 +1,116 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Player by ID</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex flex-col items-center justify-center min-h-screen">
+  <div class="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
+    <h1 class="text-2xl font-bold text-center mb-4">Video Player</h1>
+    <div class="flex mb-4">
+      <input
+        type="text"
+        id="videoId"
+        placeholder="Enter Video ID"
+        class="flex-1 p-2 border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+      >
+      <button
+        onclick="playVideo()"
+        class="bg-blue-500 text-white p-2 rounded-r-md hover:bg-blue-600"
+      >
+        Play
+      </button>
+    </div>
+    <div id="error" class="text-red-500 text-center mb-4 hidden"></div>
+    <video
+      id="videoPlayer"
+      controls
+      class="w-full rounded-md"
+      style="display: none;"
+    ></video>
+  </div>
+
+  <script>
+    function playVideo() {
+      const videoId = document.getElementById('videoId').value.trim();
+      const errorDiv = document.getElementById('error');
+      const videoPlayer = document.getElementById('videoPlayer');
+
+      // Reset previous state
+      errorDiv.classList.add('hidden');
+      errorDiv.textContent = '';
+      videoPlayer.style.display = 'none';
+      videoPlayer.src = '';
+
+      // Validate input
+      if (!videoId || !/^\d+$/.test(videoId)) {
+        errorDiv.textContent = 'Please enter a valid numeric ID';
+        errorDiv.classList.remove('hidden');
+        return;
+      }
+
+      // Construct video URL
+      const videoUrl = `https://apps-s3-jw-prod.utkarshapp.com/admin_v1/file_library/videos/enc_plain_mp4/${videoId}/plain/720x1280.mp4`;
+
+      // Set video source and attempt to load
+      videoPlayer.src = videoUrl;
+      videoPlayer.style.display = 'block';
+
+      // Handle video load errors
+      videoPlayer.onerror = () => {
+        errorDiv.textContent = 'Failed to load video. Invalid ID or access restricted.';
+        errorDiv.classList.remove('hidden');
+        videoPlayer.style.display = 'none';
+      };
+    }
+
+    // Allow pressing Enter to play video
+    document.getElementById('videoId').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        playVideo();
+      }
+    });
+  </script>
+</body>
+</html>

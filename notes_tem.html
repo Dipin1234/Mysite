@@ -1,0 +1,365 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flamingo Chapter-1: The Last Lesson</title>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 50px;
+            background: linear-gradient(145deg, #0f172a, #1e3a8a);
+            color: #111827;
+            overflow-x: hidden;
+        }
+        .container {
+            max-width: 950px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 25px;
+            padding: 50px;
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+            position: relative;
+            overflow: hidden;
+            animation: fadeIn 1s ease-in-out;
+        }
+        .container::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(59, 130, 246, 0.2), transparent);
+            transform: rotate(45deg);
+            pointer-events: none;
+        }
+        .header {
+            background: linear-gradient(90deg, #1d4ed8, #a855f7);
+            color: #ffffff;
+            padding: 40px;
+            text-align: center;
+            border-radius: 20px;
+            margin-bottom: 40px;
+            position: relative;
+            z-index: 1;
+            animation: slideIn 0.8s ease-out;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 38px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .header p {
+            margin: 10px 0;
+            font-size: 20px;
+            font-weight: 300;
+            opacity: 0.85;
+            animation: fadeInText 1.2s ease-in;
+        }
+        .question {
+            margin: 40px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #f8fafc, #e0e7ff);
+            border-radius: 15px;
+            transition: all 0.4s ease;
+            border: 2px solid #dbeafe;
+            position: relative;
+            animation: cardPop 0.5s ease-out;
+        }
+        .question:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #3b82f6;
+        }
+        .question h3 {
+            color: #1e3a8a;
+            font-size: 24px;
+            margin: 0 0 15px 0;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+        .question h3::before {
+            content: '📘';
+            margin-right: 12px;
+            font-size: 22px;
+            transition: transform 0.3s ease;
+        }
+        .question:hover h3::before {
+            transform: rotate(360deg);
+        }
+        .answer {
+            font-size: 17px;
+            line-height: 1.9;
+            color: #1f2937;
+            animation: fadeInText 1s ease-in;
+        }
+        .mcq {
+            margin: 40px 0;
+            padding: 25px;
+            background: linear-gradient(135deg, #f8fafc, #e0e7ff);
+            border-radius: 15px;
+            transition: all 0.4s ease;
+            border: 2px solid #dbeafe;
+            animation: cardPop 0.6s ease-out;
+        }
+        .mcq:hover {
+            transform: scale(1.02);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+            border-color: #3b82f6;
+        }
+        .mcq h3 {
+            color: #1e3a8a;
+            font-size: 24px;
+            margin: 0 0 15px 0;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+        }
+        .mcq h3::before {
+            content: '🎯';
+            margin-right: 12px;
+            font-size: 22px;
+            transition: transform 0.3s ease;
+        }
+        .mcq:hover h3::before {
+            transform: scale(1.2);
+        }
+        .mcq ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .mcq li {
+            margin: 12px 0;
+            font-size: 17px;
+            color: #1f2937;
+            padding: 10px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        .mcq li:hover {
+            background: #bfdbfe;
+            transform: translateX(5px);
+        }
+        .mcq .correct {
+            color: #047857;
+            font-weight: bold;
+            background: #d1fae5;
+            padding: 6px;
+            border-radius: 8px;
+            display: inline-flex;
+            align-items: center;
+        }
+        .mcq .correct::after {
+            content: '✔';
+            margin-left: 8px;
+            font-size: 14px;
+        }
+        .divider {
+            border-top: 4px dashed #bfdbfe;
+            margin: 30px 0;
+            opacity: 0.6;
+            animation: slideIn 1s ease;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes cardPop {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        @keyframes fadeInText {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @media print {
+            body {
+                padding: 0;
+                background: #fff;
+            }
+            .container {
+                box-shadow: none;
+                padding: 20px;
+            }
+            .question, .mcq {
+                transform: none;
+                box-shadow: none;
+                border: 1px solid #e5e7eb;
+            }
+            .container::before {
+                display: none;
+            }
+            .header, .question, .mcq {
+                animation: none;
+            }
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Flamingo: Chapter-1</h1>
+            <p>The Last Lesson</p>
+            <p>Comprehension Questions & Answers</p>
+        </div>
+
+        <div class="question">
+            <h3>Q.1 What was Franz expected to be prepared with for school that day?</h3>
+            <div class="answer">
+                <p>Franz was expected to be prepared with the rules of participles that day as M. Hamel was going to question on participles.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.2 What did Franz notice that was unusual about the school that day?</h3>
+            <div class="answer">
+                <p>That day the school was so strange and solemn. There was no bustle. Everything was as quiet as Sunday morning. The students were already in their places. These things were so unusual.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.3 What had been put up on the bulletin board?</h3>
+            <div class="answer">
+                <p>On the bulletin board, there was an order from Berlin to teach only German in the schools of Alsace and Lorraine.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.4 What changes did the order from Berlin cause in school that day?</h3>
+            <div class="answer">
+                <p>The order from Berlin caused many changes that day in the school as it was the last French lesson. To honour this lesson, M. Hamel wore his embroidered Sunday clothes that he used to wear on special occasions only. The whole school was so strange and solemn, and on the back benches, village people were sitting quietly and in a sad mood.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.5 How did Franz’s feelings about M. Hamel and school change?</h3>
+            <div class="answer">
+                <p>After acknowledging the order from Berlin and the fact that instead of French, German would be taught in the school, Franz’s feelings changed about M. Hamel and school. He felt sorry for not learning French lessons properly. His books, which seemed to be a nuisance and burden earlier, were now like his old friends. He forgot all about M. Hamel’s ruler and his bad temper and started feeling sorry for him.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.6 The people in the story suddenly realise how precious their language is to them. What shows you this? Why does this happen?</h3>
+            <div class="answer">
+                <p>The people in the story realise the importance of their language when M. Hamel said that to know and hold fast to their language is like having a key to their prison. This shows that we should love, respect, and guard our own language, culture, tradition, and country.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.7 Franz thinks, “Will they make them sing in German, even the pigeons?” What could this mean?</h3>
+            <div class="answer">
+                <p>Franz’s thought means that it was so unfair of Germany to impose a foreign language because the mother tongue is a very natural thing, as pigeons have their own natural language and they can’t be forced to sing in German. Besides, this shows a comparison between the people of Alsace and pigeons that pigeons are independent and free to speak their language, but they (people of Alsace) are now slaves and have to adopt a foreign language.</p>
+            </div>
+        </div>
+
+        <div class="mcq">
+            <h3>Q.8 Notice the underlined words in these sentences and tick the option that best explains their meaning:</h3>
+            <div class="answer">
+                <p>(a) “What a thunderclap these words were to me!” The words were</p>
+                <ul>
+                    <li>(i) loud and clear.</li>
+                    <li>(ii) startling and unexpected. <span class="correct">(Correct)</span></li>
+                    <li>(iii) pleasant and welcome.</li>
+                </ul>
+                <p>(b) “When a people are enslaved, as long as they hold fast to their language it is as if they had the key to their prison” It is as if they have the key to the prison as long as they</p>
+                <ul>
+                    <li>(i) do not lose their language. <span class="correct">(Correct)</span></li>
+                    <li>(ii) are attached to their language.</li>
+                    <li>(iii) quickly learn the conqueror’s language.</li>
+                </ul>
+                <p>(c) “Don’t go so fast, you will get to your school in plenty of time.” You will get to your school</p>
+                <ul>
+                    <li>(i) very late.</li>
+                    <li>(ii) too early.</li>
+                    <li>(iii) early enough. <span class="correct">(Correct)</span></li>
+                </ul>
+                <p>(d) “I never saw him look so tall.” M. Hamel</p>
+                <ul>
+                    <li>(i) had grown physically taller.</li>
+                    <li>(ii) seemed very confident. <span class="correct">(Correct)</span></li>
+                    <li>(iii) stood on the chair.</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.9 How is the mother tongue important to a person? What does M. Hamel, the teacher, say about it?</h3>
+            <div class="answer">
+                <p>The mother tongue is the common factor which unites the countrymen. M. Hamel made the villagers realize the importance of the mother tongue. He spoke about the beauty of their mother tongue—the French language. He asked the class to guard it because it was the key to their freedom.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.10 How did Franz react to the declaration that it was their last French lesson?</h3>
+            <div class="answer">
+                <p>Franz was shocked to know that he could not learn French anymore. He repented that he had not been serious before. He wished he had revised participles and would be able to answer M. Hamel’s questions. Franz gained a sudden liking for his teacher and did not want him to leave.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.11 Write the character sketch of M. Hamel.</h3>
+            <div class="answer">
+                <p>M. Hamel was a French teacher who had been teaching for forty years in the school of Alsace. He was a strict teacher who always kept an iron ruler under his arm to punish the students. He always thought about the welfare of the children and their better future. He was patriotic and loved his homeland, France. He believed that education plays an important role in preserving one’s language and culture. He loved the French language and considered it the most beautiful language in the world. He earned great respect, as on his last day in the school, many village people came to show their thankfulness.</p>
+            </div>
+        </div>
+
+        <div class="question">
+            <h3>Q.12 Why was Franz scared that day? What did he see on his way to school and how did he get to his desk?</h3>
+            <div class="answer">
+                <p>Franz was not good at learning. He would rather take the day off to waste time searching for birds’ eggs or going sliding on the Saar. Franz was scared that day because M. Hamel had said that he would question them on participles. Franz did not know anything about participles. He found that the day was warm and bright. The birds were chirping at the edge of the woods. The Prussian soldiers were drilling in the open fields. There was a crowd in front of the bulletin-board near the town hall. Franz found the schoolroom unusually quiet. So, he had no option but to open the door and go in before everybody. He blushed and was frightened of the teacher. M. Hamel spoke very kindly to him and asked him to go to his place quickly. Franz jumped over the bench and sat down at his desk.</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
